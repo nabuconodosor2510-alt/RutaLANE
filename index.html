@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RutaLANE | Envíos Programados en Moto</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="logo.png" alt="RutaLANE" class="brand-logo" onerror="this.style.display='none'" />
+      <span class="brand-name">RutaLANE</span>
+    </div>
+    <div id="statusBadge" class="status-badge status-loading">Cargando...</div>
+  </header>
+
+  <main class="container">
+    <!-- Loading global inicial -->
+    <div id="globalLoader" class="card center-box">
+      <div class="spinner"></div>
+      <p>Conectando con RutaLANE...</p>
+    </div>
+
+    <!-- Aviso si está CERRADO -->
+    <div id="closedScreen" class="card center-box hidden">
+      <h2>Servicio Cerrado Temporalmente</h2>
+      <p>En este momento no estamos recibiendo nuevas programaciones. Por favor, vuelve a intentarlo más adelante.</p>
+    </div>
+
+    <!-- App principal -->
+    <div id="wizardApp" class="hidden">
+      <!-- Barra de pasos -->
+      <div class="stepper">
+        <div class="step active" data-step="1">1. Inicio</div>
+        <div class="step" data-step="2">2. Ruta</div>
+        <div class="step" data-step="3">3. Agenda</div>
+        <div class="step" data-step="4">4. Datos</div>
+      </div>
+
+      <!-- PASO 1: Bienvenida -->
+      <section id="step1" class="card step-panel">
+        <div class="hero">
+          <img src="logo.png" alt="Logo RutaLANE" class="hero-logo" onerror="this.style.display='none'" />
+          <h1>Envíos programados en moto, claros y puntuales</h1>
+          <p class="muted">Programa tu envío desde mañana con rango de recojo por turno y entrega el mismo día del recojo.</p>
+        </div>
+
+        <ul class="rules-list">
+          <li><strong>Modalidad programada:</strong> Reservas disponibles desde el día siguiente.</li>
+          <li><strong>Entrega garantizada:</strong> Dentro del mismo día en que se realiza el recojo.</li>
+          <li><strong>Capacidad de moto:</strong> 1 solo bulto que quepa cómodamente en baúl o mochila.</li>
+        </ul>
+
+        <button id="btnStart" class="btn btn-primary btn-full">📅 Programar Pedido</button>
+      </section>
+
+      <!-- PASO 2: Selección de Origen y Destino en Mapa -->
+      <section id="step2" class="card step-panel hidden">
+        <h2>Selecciona Origen y Destino</h2>
+        <p class="muted">Elige qué punto vas a marcar en el mapa y toca sobre la ubicación exacta.</p>
+
+        <div class="pin-selector">
+          <button type="button" id="btnSelectOrigin" class="pin-btn active">📍 Marcar Origen (Recojo)</button>
+          <button type="button" id="btnSelectDest" class="pin-btn">🏁 Marcar Destino (Entrega)</button>
+        </div>
+
+        <div id="map" class="map-box"></div>
+
+        <div class="route-summary">
+          <div>
+            <small>Origen:</small>
+            <div id="originLabel" class="route-addr">Aún no seleccionado</div>
+          </div>
+          <div>
+            <small>Destino:</small>
+            <div id="destLabel" class="route-addr">Aún no seleccionado</div>
+          </div>
+          <div class="route-metrics hidden" id="routeMetrics">
+            <span>Distancia: <strong id="distanceText">0.0 km</strong></span>
+            <span>Tarifa estimada: <strong id="priceText">S/ 0.00</strong></span>
+          </div>
+        </div>
+
+        <div id="routeLoader" class="inline-loader hidden">
+          <div class="spinner-sm"></div>
+          <span>Calculando ruta y tarifa...</span>
+        </div>
+
+        <p id="routeError" class="error-text hidden"></p>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep(1)">Atrás</button>
+          <button type="button" id="btnToStep3" class="btn btn-primary" disabled>Continuar</button>
+        </div>
+      </section>
+
+      <!-- PASO 3: Fecha Programada y Turno de Recojo -->
+      <section id="step3" class="card step-panel hidden">
+        <h2>Fecha y Turno de Recojo</h2>
+        <p class="muted">Solo puedes programar desde mañana en adelante.</p>
+
+        <div class="quote-banner">
+          <div>Distancia: <strong id="summaryDist">0.0 km</strong></div>
+          <div>Total a pagar: <strong id="summaryPrice">S/ 0.00</strong></div>
+        </div>
+
+        <div class="form-group">
+          <label for="fechaProgramada">Fecha de recojo</label>
+          <input type="date" id="fechaProgramada" class="input" />
+          <small id="cupoInfo" class="helper-text"></small>
+          <p id="dateError" class="error-text hidden"></p>
+        </div>
+
+        <div class="form-group">
+          <label>Elige tu turno de recojo</label>
+          <div id="turnosContainer" class="turnos-grid"></div>
+          <p id="turnoError" class="error-text hidden"></p>
+        </div>
+
+        <div class="delivery-guarantee">
+          🚚 <strong>Aviso de entrega:</strong> Su pedido será entregado dentro del transcurso del mismo día en que se efectúa el recojo.
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep(2)">Atrás</button>
+          <button type="button" id="btnToStep4" class="btn btn-primary" disabled>Continuar</button>
+        </div>
+      </section>
+
+      <!-- PASO 4: Datos del Remitente, Destinatario y Validación -->
+      <section id="step4" class="card step-panel hidden">
+        <h2>Datos del Envío</h2>
+
+        <div class="form-group">
+          <label for="remitenteNombre">Nombre del remitente *</label>
+          <input type="text" id="remitenteNombre" class="input" placeholder="Ej. Carlos Pérez" required />
+        </div>
+
+        <div class="form-group">
+          <label for="remitenteTelefono">Teléfono del remitente *</label>
+          <input type="tel" id="remitenteTelefono" class="input" placeholder="Ej. 987654321" required />
+        </div>
+
+        <div class="form-group">
+          <label for="destinatarioNombre">Nombre del destinatario *</label>
+          <input type="text" id="destinatarioNombre" class="input" placeholder="Ej. María Quispe" required />
+        </div>
+
+        <div class="form-group">
+          <label for="destinatarioTelefono">Teléfono del destinatario *</label>
+          <input type="tel" id="destinatarioTelefono" class="input" placeholder="Ej. 912345678" required />
+        </div>
+
+        <div class="form-group">
+          <label for="referencias">Referencias de entrega / recojo</label>
+          <textarea id="referencias" class="input textarea" rows="2" placeholder="Portón negro, piso 2, llamar al llegar..."></textarea>
+        </div>
+
+        <label class="checkbox-box">
+          <input type="checkbox" id="checkBulto" />
+          <span>Confirmo que envío <strong>un (1) solo bulto/paquete</strong> adecuado para baúl o mochila de motocicleta.</span>
+        </label>
+
+        <p id="submitError" class="error-text hidden"></p>
+
+        <div id="submitLoader" class="inline-loader hidden">
+          <div class="spinner-sm"></div>
+          <span>Registrando pedido en RutaLANE...</span>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep(3)">Atrás</button>
+          <button type="button" id="btnConfirmarPedido" class="btn btn-primary">Confirmar y Enviar por WhatsApp</button>
+        </div>
+      </section>
+
+      <!-- Confirmación Final -->
+      <section id="stepSuccess" class="card center-box hidden">
+        <h2>¡Pedido Registrado!</h2>
+        <p>Código de seguimiento: <strong id="createdOrderId">RL-0001</strong></p>
+        <p class="muted">Si no se abrió WhatsApp automáticamente, presiona el botón de abajo.</p>
+        <a id="manualWhatsappLink" href="#" target="_blank" rel="noopener" class="btn btn-primary btn-full">Abrir WhatsApp</a>
+        <button type="button" class="btn btn-secondary btn-full mt-2" onclick="location.reload()">Programar otro envío</button>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
