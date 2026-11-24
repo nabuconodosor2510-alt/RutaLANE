@@ -4,9 +4,9 @@ const API_URL = https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08
 const state = {
   config: null,
   ocupacion: {},
-  activePinMode: 'origin',
-  origin: null,
-  dest: null,
+  activePinMode: 'origin', // 'origin' | 'dest'
+  origin: null, // { lat, lng, label }
+  dest: null,   // { lat, lng, label }
   routeLine: null,
   distanceKm: 0,
   tarifa: 0,
@@ -53,7 +53,7 @@ async function initApp() {
 function renderBusinessStatus() {
   const badge = document.getElementById('statusBadge');
   const isOpen = state.config && state.config.estadoNegocio === 'ABIERTO';
-  badge.textContent = isOpen ? 'ABIERTO' : 'CERRADO';
+  badge.textContent = isOpen ? '🟢 ABIERTO' : '🔴 CERRADO';
   badge.className = `status-badge ${isOpen ? 'status-open' : 'status-closed'}`;
 }
 
@@ -104,6 +104,7 @@ function goToStep(stepNumber) {
 function initMapIfNeeded() {
   if (map) return;
 
+  // Centro inicial en Lima
   map = L.map('map').setView([-12.0464, -77.0428], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
@@ -336,6 +337,7 @@ async function submitOrder() {
   };
 
   try {
+    // text/plain evita problemas de preflight CORS en Apps Script
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -349,7 +351,7 @@ async function submitOrder() {
     }
 
     const msg = [
-      `🏍️ *NUEVO PEDIDO RUTALANE (${result.idPedido})*`,
+      `*NUEVO PEDIDO RUTALANE (${result.idPedido})*`,
       `📅 *Fecha:* ${fechaProgramada}`,
       `⏰ *Turno Recojo:* ${payload.turnoRecojo}`,
       `🚚 *Entrega:* Dentro del mismo día del recojo`,
@@ -370,7 +372,7 @@ async function submitOrder() {
     document.querySelectorAll('.step-panel').forEach((el) => el.classList.add('hidden'));
     document.getElementById('stepSuccess').classList.remove('hidden');
 
-    window.open(waUrl, '_blank');
+    window.open(waUrl, '_blank', 'noopener');
   } catch (err) {
     submitErr.textContent = err.message;
     submitErr.classList.remove('hidden');
