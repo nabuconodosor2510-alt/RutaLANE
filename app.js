@@ -1,12 +1,12 @@
 // REEMPLAZA ESTA URL POR LA DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
-const API_URL = https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec;
+const API_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
 
 const state = {
   config: null,
   ocupacion: {},
-  activePinMode: 'origin', // 'origin' | 'dest'
-  origin: null, // { lat, lng, label }
-  dest: null,   // { lat, lng, label }
+  activePinMode: 'origin',
+  origin: null,
+  dest: null,
   routeLine: null,
   distanceKm: 0,
   tarifa: 0,
@@ -19,10 +19,33 @@ let destMarker = null;
 
 document.addEventListener('DOMContentLoaded', initApp);
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function initApp() {
   bindEvents();
   try {
-    const res = await fetch(API_URL);
+    const res = await fetchWithTimeout(API_URL, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
     const data = await res.json();
 
     if (data.status !== 'ok') {
@@ -44,8 +67,13 @@ async function initApp() {
     setupDateInput();
     renderTurnos();
   } catch (err) {
+    const msgError = err.name === 'AbortError'
+      ? 'La conexión tardó demasiado (revisa tu señal o bloqueador de contenido).'
+      : err.message;
+
     document.getElementById('globalLoader').innerHTML = `
-      <p class="error-text">Error al conectar con el servidor: ${err.message}</p>
+      <p class="error-text" style="margin-bottom:12px;">No se pudo conectar: ${msgError}</p>
+      <button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button>
     `;
   }
 }
@@ -53,7 +81,7 @@ async function initApp() {
 function renderBusinessStatus() {
   const badge = document.getElementById('statusBadge');
   const isOpen = state.config && state.config.estadoNegocio === 'ABIERTO';
-  badge.textContent = isOpen ? '🟢 ABIERTO' : '🔴 CERRADO';
+  badge.textContent = isOpen ? 'ABIERTO' : 'CERRADO';
   badge.className = `status-badge ${isOpen ? 'status-open' : 'status-closed'}`;
 }
 
@@ -104,7 +132,6 @@ function goToStep(stepNumber) {
 function initMapIfNeeded() {
   if (map) return;
 
-  // Centro inicial en Lima
   map = L.map('map').setView([-12.0464, -77.0428], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
@@ -337,12 +364,11 @@ async function submitOrder() {
   };
 
   try {
-    // text/plain evita problemas de preflight CORS en Apps Script
-    const res = await fetch(API_URL, {
+    const res = await fetchWithTimeout(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    });
+    }, 15000);
 
     const result = await res.json();
 
@@ -352,17 +378,17 @@ async function submitOrder() {
 
     const msg = [
       `*NUEVO PEDIDO RUTALANE (${result.idPedido})*`,
-      `📅 *Fecha:* ${fechaProgramada}`,
-      `⏰ *Turno Recojo:* ${payload.turnoRecojo}`,
-      `🚚 *Entrega:* Dentro del mismo día del recojo`,
-      `👤 *Remitente:* ${remitenteNombre} (${remitenteTelefono})`,
-      `📦 *Destinatario:* ${destinatarioNombre} (${destinatarioTelefono})`,
-      `📍 *Origen:* ${payload.direccionOrigen}`,
-      `🏁 *Destino:* ${payload.direccionDestino}`,
-      `📝 *Referencias:* ${payload.referencias}`,
-      `📏 *Distancia:* ${payload.distanciaKm.toFixed(1)} km`,
-      `💰 *Tarifa:* S/ ${payload.tarifa.toFixed(2)}`,
-      `✅ *Condición:* 1 bulto para moto`
+      `- *Fecha:* ${fechaProgramada}`,
+      `- *Turno Recojo:* ${payload.turnoRecojo}`,
+      `- *Entrega:* Dentro del mismo dia del recojo`,
+      `- *Remitente:* ${remitenteNombre} (${remitenteTelefono})`,
+      `- *Destinatario:* ${destinatarioNombre} (${destinatarioTelefono})`,
+      `- *Origen:* ${payload.direccionOrigen}`,
+      `- *Destino:* ${payload.direccionDestino}`,
+      `- *Referencias:* ${payload.referencias}`,
+      `- *Distancia:* ${payload.distanciaKm.toFixed(1)} km`,
+      `- *Tarifa:* S/ ${payload.tarifa.toFixed(2)}`,
+      `- *Condicion:* 1 bulto para moto`
     ].join('\n');
 
     const waUrl = `https://wa.me/${state.config.whatsapp}?text=${encodeURIComponent(msg)}`;
@@ -372,9 +398,12 @@ async function submitOrder() {
     document.querySelectorAll('.step-panel').forEach((el) => el.classList.add('hidden'));
     document.getElementById('stepSuccess').classList.remove('hidden');
 
-    window.open(waUrl, '_blank', 'noopener');
+    // En iPhone window.open tras async suele bloquearse; location.href abre WhatsApp directo
+    window.location.href = waUrl;
   } catch (err) {
-    submitErr.textContent = err.message;
+    submitErr.textContent = err.name === 'AbortError'
+      ? 'La solicitud tardó demasiado. Intenta nuevamente.'
+      : err.message;
     submitErr.classList.remove('hidden');
     btn.disabled = false;
   } finally {
