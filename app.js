@@ -1,5 +1,5 @@
 // REEMPLAZA ESTA URL POR LA DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
-const API_URL = https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec ;
+const API_URL = 'https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec';
 
 const state = {
   config: null,
@@ -36,11 +36,27 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
 
 async function initApp() {
   bindEvents();
+
+  const fallbackBtnTimer = setTimeout(() => {
+    const loader = document.getElementById('globalLoader');
+    if (loader && !loader.classList.contains('hidden')) {
+      const btnWrap = document.createElement('div');
+      btnWrap.style.marginTop = '12px';
+      btnWrap.innerHTML = `
+        <p class="muted" style="margin-bottom:10px;">La conexión está tardando más de lo normal en este dispositivo.</p>
+        <button type="button" class="btn btn-primary" onclick="location.reload()">Recargar</button>
+      `;
+      loader.appendChild(btnWrap);
+    }
+  }, 6000);
+
   try {
     const res = await fetchWithTimeout(API_URL, {
       method: 'GET',
       cache: 'no-store'
-    });
+    }, 10000);
+
+    clearTimeout(fallbackBtnTimer);
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
@@ -67,8 +83,9 @@ async function initApp() {
     setupDateInput();
     renderTurnos();
   } catch (err) {
+    clearTimeout(fallbackBtnTimer);
     const msgError = err.name === 'AbortError'
-      ? 'La conexión tardó demasiado (revisa tu señal o bloqueador de contenido).'
+      ? 'Tiempo de espera agotado en la red del celular.'
       : err.message;
 
     document.getElementById('globalLoader').innerHTML = `
@@ -377,18 +394,18 @@ async function submitOrder() {
     }
 
     const msg = [
-      `*NUEVO PEDIDO RUTALANE (${result.idPedido})*`,
-      `- *Fecha:* ${fechaProgramada}`,
-      `- *Turno Recojo:* ${payload.turnoRecojo}`,
-      `- *Entrega:* Dentro del mismo dia del recojo`,
-      `- *Remitente:* ${remitenteNombre} (${remitenteTelefono})`,
-      `- *Destinatario:* ${destinatarioNombre} (${destinatarioTelefono})`,
-      `- *Origen:* ${payload.direccionOrigen}`,
-      `- *Destino:* ${payload.direccionDestino}`,
-      `- *Referencias:* ${payload.referencias}`,
-      `- *Distancia:* ${payload.distanciaKm.toFixed(1)} km`,
-      `- *Tarifa:* S/ ${payload.tarifa.toFixed(2)}`,
-      `- *Condicion:* 1 bulto para moto`
+      `🏍️ *NUEVO PEDIDO RUTALANE (${result.idPedido})*`,
+      `📅 *Fecha:* ${fechaProgramada}`,
+      `⏰ *Turno Recojo:* ${payload.turnoRecojo}`,
+      `🚚 *Entrega:* Dentro del mismo día del recojo`,
+      `👤 *Remitente:* ${remitenteNombre} (${remitenteTelefono})`,
+      `📦 *Destinatario:* ${destinatarioNombre} (${destinatarioTelefono})`,
+      `📍 *Origen:* ${payload.direccionOrigen}`,
+      `🏁 *Destino:* ${payload.direccionDestino}`,
+      `📝 *Referencias:* ${payload.referencias}`,
+      `📏 *Distancia:* ${payload.distanciaKm.toFixed(1)} km`,
+      `💰 *Tarifa:* S/ ${payload.tarifa.toFixed(2)}`,
+      `✅ *Condición:* 1 bulto para moto`
     ].join('\n');
 
     const waUrl = `https://wa.me/${state.config.whatsapp}?text=${encodeURIComponent(msg)}`;
@@ -398,15 +415,9 @@ async function submitOrder() {
     document.querySelectorAll('.step-panel').forEach((el) => el.classList.add('hidden'));
     document.getElementById('stepSuccess').classList.remove('hidden');
 
-    // En iPhone window.open tras async suele bloquearse; location.href abre WhatsApp directo
     window.location.href = waUrl;
   } catch (err) {
     submitErr.textContent = err.name === 'AbortError'
       ? 'La solicitud tardó demasiado. Intenta nuevamente.'
       : err.message;
-    submitErr.classList.remove('hidden');
-    btn.disabled = false;
-  } finally {
-    loader.classList.add('hidden');
-  }
-}
+    submitErr.
