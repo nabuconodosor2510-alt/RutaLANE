@@ -1,5 +1,5 @@
 // REEMPLAZA ESTA URL POR LA DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
-const API_URL = 'https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec' ;
+const API_URL = https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec;
 
 const state = {
   config: null,
@@ -19,32 +19,10 @@ let destMarker = null;
 
 document.addEventListener('DOMContentLoaded', initApp);
 
-async function fetchMobileSafe(url, options = {}, timeoutMs = 12000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...options,
-      redirect: 'follow',
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function initApp() {
   bindEvents();
   try {
-    const res = await fetchMobileSafe(API_URL, {
-      method: 'GET',
-      cache: 'no-store'
-    }, 12000);
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
+    const res = await fetch(API_URL);
     const data = await res.json();
 
     if (data.status !== 'ok') {
@@ -66,13 +44,8 @@ async function initApp() {
     setupDateInput();
     renderTurnos();
   } catch (err) {
-    const detail = err.name === 'AbortError'
-      ? 'La conexión tardó demasiado en responder en el dispositivo.'
-      : err.message;
-
     document.getElementById('globalLoader').innerHTML = `
-      <p class="error-text" style="margin-bottom:12px;">Error al conectar con el servidor: ${detail}</p>
-      <button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button>
+      <p class="error-text">Error al conectar con el servidor: ${err.message}</p>
     `;
   }
 }
@@ -363,11 +336,11 @@ async function submitOrder() {
   };
 
   try {
-    const res = await fetchMobileSafe(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
-    }, 15000);
+    });
 
     const result = await res.json();
 
@@ -397,11 +370,9 @@ async function submitOrder() {
     document.querySelectorAll('.step-panel').forEach((el) => el.classList.add('hidden'));
     document.getElementById('stepSuccess').classList.remove('hidden');
 
-    window.location.href = waUrl;
+    window.open(waUrl, '_blank');
   } catch (err) {
-    submitErr.textContent = err.name === 'AbortError'
-      ? 'La solicitud tardó demasiado. Intenta nuevamente.'
-      : err.message;
+    submitErr.textContent = err.message;
     submitErr.classList.remove('hidden');
     btn.disabled = false;
   } finally {
