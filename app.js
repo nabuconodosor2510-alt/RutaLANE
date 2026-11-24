@@ -1,5 +1,5 @@
 // REEMPLAZA ESTA URL POR LA DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
-const API_URL = https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec;
+const API_URL ='https://script.google.com/macros/s/AKfycbz0FiUDcTH8XMYNrrzEEhn08vEYE-O6bX0_NKktg-5A1PLgIlPP_6LsF9X-49HOchlO/exec';
 
 const state = {
   config: null,
